@@ -25,7 +25,15 @@ app.use(json());
 app.use(cors({
     origin: 'http://localhost:5173',
 }));
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+    },
+  },
+}));
 
 
 // middlewares
