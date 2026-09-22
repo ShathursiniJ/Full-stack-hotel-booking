@@ -16,7 +16,7 @@ export const register = async(req, res, next)=>{
             msg: 'user saved'
          })
     } catch (error) {
-       next(error) 
+       next(error)
     }
 }
 // Login
@@ -35,13 +35,16 @@ export const login = async(req, res, next)=>{
          const token = jwt.sign({
             id: user._id,
             isAdmin: user.isAdmin
-         }, process.env.JWT_SECRET)
+         }, process.env.JWT_SECRET, { expiresIn: "1d" })
 
          res.cookie("access_token", token, {
-            httpOnly: true
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            maxAge: 24 * 60 * 60 * 1000
          }).status(200).json({details:{...otherDetails, isAdmin}})
-       
+
     } catch (error) {
-       next(error) 
+       next(error)
     }
 }
