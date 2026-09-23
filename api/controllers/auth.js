@@ -47,6 +47,9 @@ export const register = async (req, res, next) => {
 // Login
 export const login = async(req, res, next)=>{
    try {
+             if (typeof req.body.username !== 'string' || typeof req.body.password !== 'string') {
+          return next(createError(400, "invalid username or password format"))
+       }
        // password has select:false in the schema, so request it explicitly
        const user = await User.findOne({
           username: req.body.username

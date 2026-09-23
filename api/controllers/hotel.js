@@ -1,3 +1,4 @@
+import { createError } from '../utils/error.js'
 import Hotel from '../models/Hotel.js'
 import Room from '../models/Room.js'
 
@@ -62,11 +63,21 @@ export const getAllHotel = async (req, res, next) => {
 
         // console.log(`Limit: ${lim}`);
         // console.log('Hotels:', hotels.length);
-        const {limit, min, max, ...query} = req.query;
-        const lim = parseInt(limit) || 40;
-        const hotels = await Hotel.find({
-            ...query
-        }).limit(lim)
+                const { city, type, featured, limit } = req.query;
+        // allow-list: only these filters, and only plain text (blocks $ne, $regex...)
+        const filter = {};
+        if (city !== undefined) {
+            if (typeof city !== 'string') return next(createError(400, 'invalid city'));
+            filter.city = city;
+        }
+        if (type !== undefined) {
+            if (typeof type !== 'string') return next(createError(400, 'invalid type'));
+            filter.type = type;
+        }
+        if (featured === 'true' || featured === 'false') filter.featured = featured === 'true';
+        const lim = Math.min(parseInt(limit) || 40, 100);
+        const hotels = await Hotel.find(filter).limit(lim)
+
         res.status(200).json(hotels);
     } catch (err) {
         console.error('Error fetching hotels:', err);
@@ -77,6 +88,9 @@ export const getAllHotel = async (req, res, next) => {
 
 // Count by city
 export const countByCity = async (req, res, next) =>{
+        if (typeof req.query.cities !== 'string') {
+        return next(createError(400, 'cities must be a comma-separated string'))
+    }
     const cities = req.query.cities.split(',')
     try {
         const list =await Promise.all(cities.map(city=>{
