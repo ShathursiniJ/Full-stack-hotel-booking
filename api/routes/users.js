@@ -24,7 +24,7 @@ router.delete('/find/:id', deleteUser)
 router.get('/:id',verifyUser, getUser)
 
 // GET ALL
-router.get('/', getAllUser)
+router.get('/', verifyAdmin, getAllUser)
 
 //UPLOAD
 
