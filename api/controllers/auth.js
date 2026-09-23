@@ -47,10 +47,10 @@ export const register = async (req, res, next) => {
 // Login
 export const login = async(req, res, next)=>{
    try {
+       // password has select:false in the schema, so request it explicitly
        const user = await User.findOne({
           username: req.body.username
-         }).select('+password')
-         
+       }).select('+password')
        if(!user) return next(createError(404, "user not found"))
          const isCorrect = await bcrypt.compare(req.body.password, user.password)
        if(!isCorrect){
