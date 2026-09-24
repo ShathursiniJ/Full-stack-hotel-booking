@@ -63,7 +63,8 @@ export const getAllHotel = async (req, res, next) => {
 
         // console.log(`Limit: ${lim}`);
         // console.log('Hotels:', hotels.length);
-                const { city, type, featured, limit } = req.query;
+        
+        const { city, type, featured, limit } = req.query;
         // allow-list: only these filters, and only plain text (blocks $ne, $regex...)
         const filter = {};
         if (city !== undefined) {
