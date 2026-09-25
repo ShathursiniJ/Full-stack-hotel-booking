@@ -2,6 +2,9 @@ import User from "../models/User.js"
 import bcrypt from 'bcryptjs'
 import { createError } from "../utils/error.js";
 import jwt from 'jsonwebtoken'
+import { OAuth2Client } from 'google-auth-library'
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
 // Register
 // SECURITY FIX (Mass Assignment / Privilege Escalation - CWE-915):
@@ -14,8 +17,6 @@ export const register = async (req, res, next) => {
    try {
       const { username, email, password, country, city, phone, img } = req.body
 
-      // Reject missing or non-string values (also blocks objects such as
-      // {"$ne": null} being smuggled into the document).
       const required = { username, email, password, country, city }
       for (const [field, value] of Object.entries(required)) {
          if (typeof value !== 'string' || value.trim() === '') {
@@ -33,7 +34,6 @@ export const register = async (req, res, next) => {
          city,
          phone,
          img,
-         // isAdmin intentionally NOT taken from the request body
       })
       await newUser.save()
       res.status(201).json({
@@ -47,10 +47,9 @@ export const register = async (req, res, next) => {
 // Login
 export const login = async(req, res, next)=>{
    try {
-             if (typeof req.body.username !== 'string' || typeof req.body.password !== 'string') {
+       if (typeof req.body.username !== 'string' || typeof req.body.password !== 'string') {
           return next(createError(400, "invalid username or password format"))
        }
-       // password has select:false in the schema, so request it explicitly
        const user = await User.findOne({
           username: req.body.username
        }).select('+password')
@@ -76,4 +75,69 @@ export const login = async(req, res, next)=>{
     } catch (error) {
        next(error)
     }
+}
+
+// Google OAuth / OpenID Connect Login
+// Accepts a Google ID token from the frontend (obtained via Google Identity
+// Services on the client), verifies its signature and audience with Google's
+// servers, then finds or creates a local user and issues the same JWT/cookie
+// session as a normal login.
+export const googleLogin = async (req, res, next) => {
+   try {
+      const { credential } = req.body
+      if (typeof credential !== 'string' || credential.trim() === '') {
+         return next(createError(400, "missing Google credential"))
+      }
+
+      const ticket = await googleClient.verifyIdToken({
+         idToken: credential,
+         audience: process.env.GOOGLE_CLIENT_ID,
+      })
+      const payload = ticket.getPayload()
+      if (!payload || !payload.email_verified) {
+         return next(createError(401, "Google account email not verified"))
+      }
+
+      let user = await User.findOne({ email: payload.email })
+
+      if (!user) {
+         // Create a local account for this Google user. A random password
+         // is generated and hashed since the schema requires one, but it
+         // is never used or shared with the user (they always log in via
+         // Google for this account). country/city/phone are placeholders
+         // since Google does not provide this information; the user can
+         // update them later via their profile.
+         const randomPassword = await bcrypt.hash(
+            payload.sub + Date.now().toString(),
+            10
+         )
+         user = new User({
+            username: payload.email.split('@')[0] + '_' + payload.sub.slice(-6),
+            email: payload.email,
+            password: randomPassword,
+            country: 'Not specified',
+            city: 'Not specified',
+            phone: 0,
+            img: payload.picture || '',
+         })
+         await user.save()
+      }
+
+      const token = jwt.sign({
+         id: user._id,
+         isAdmin: user.isAdmin
+      }, process.env.JWT_SECRET, { expiresIn: "1d" })
+
+      const { password, isAdmin, ...otherDetails } = user._doc
+
+      res.cookie("access_token", token, {
+         httpOnly: true,
+         secure: process.env.NODE_ENV === "production",
+         sameSite: "strict",
+         maxAge: 24 * 60 * 60 * 1000
+      }).status(200).json({ details: { ...otherDetails, isAdmin } })
+
+   } catch (error) {
+      next(error)
+   }
 }
