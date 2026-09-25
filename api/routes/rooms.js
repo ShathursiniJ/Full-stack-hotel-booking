@@ -9,7 +9,7 @@ router.post('/:hotelId', verifyAdmin, createRoom)
 // UPDATE
 router.put('/:id', verifyAdmin, updateRoom)
 
-//UPDATE AVAILABLE — NOTE: left unprotected intentionally, this is a separate
+//UPDATE AVAILABLE â€” NOTE: left unprotected intentionally, this is a separate
 // business-logic vulnerability (unauthenticated room blocking) owned by
 // another team member; needs proper booking-flow validation, not just verifyAdmin
 router.put('/available/:id', updateAvailability)
