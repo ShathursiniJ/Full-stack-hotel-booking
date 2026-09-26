@@ -30,7 +30,7 @@ const Login = () => {
                 dispatch({type: "LOGIN_SUCCESS", payload: response.data.details});
                 navigate('/')
             }else{
-                dispatch({type: "LOGIN_FAILURE", payload: {message: 'you are not allowed'}});
+                dispatch({type: "LOGIN_FAILURE", payload: {message: 'login failed'}});
             }
         } catch (error) {
             console.log(error);
