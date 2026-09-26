@@ -141,3 +141,47 @@ export const googleLogin = async (req, res, next) => {
       next(error)
    }
 }
+
+// Admin login
+// SECURITY: the admin panel used to call the normal /login and decide in the
+// BROWSER whether the user was an admin. A non-admin still got a session cookie
+// and the check could be bypassed. The server now refuses non-admins.
+export const adminLogin = async(req, res, next)=>{
+   try {
+       if (typeof req.body.username !== 'string' || typeof req.body.password !== 'string') {
+          return next(createError(401, "invalid credentials"))
+       }
+       const user = await User.findOne({ username: req.body.username }).select('+password')
+       const isCorrect = user && await bcrypt.compare(req.body.password, user.password)
+       if(!isCorrect || !user.isAdmin){
+         return next(createError(401, "invalid credentials"))
+       }
+       const {password, isAdmin, ...otherDetails} = user._doc
+       const token = jwt.sign({
+          id: user._id,
+          isAdmin: user.isAdmin
+       }, process.env.JWT_SECRET, { expiresIn: "1d" })
+
+       res.cookie("access_token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 24 * 60 * 60 * 1000
+       }).status(200).json({details:{...otherDetails, isAdmin}})
+   } catch (error) {
+      next(error)
+   }
+}
+
+// The admin panel calls this on every protected page: the SERVER decides.
+export const verifyAdminSession = (req, res) => {
+   res.status(200).json({ isAdmin: true })
+}
+
+export const logout = (req, res) => {
+   res.clearCookie("access_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+   }).status(200).json({ msg: "logged out" })
+}
