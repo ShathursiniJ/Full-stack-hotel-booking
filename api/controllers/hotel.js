@@ -88,13 +88,22 @@ export const getAllHotel = async (req, res, next) => {
 
 
 // Count by city
+// SECURITY: one request used to trigger one DB query per city with no upper
+// limit (5000 cities = 5000 queries). Now capped at MAX_CITIES.
+const MAX_CITIES = 10
 export const countByCity = async (req, res, next) =>{
-        if (typeof req.query.cities !== 'string') {
+    if (typeof req.query.cities !== 'string') {
         return next(createError(400, 'cities must be a comma-separated string'))
     }
-    const cities = req.query.cities.split(',')
+    const cities = req.query.cities.split(',').map(c => c.trim()).filter(Boolean)
+    if (cities.length === 0 || cities.length > MAX_CITIES) {
+        return next(createError(400, `cities must contain 1-${MAX_CITIES} city names`))
+    }
+    if (cities.some(c => c.length > 50)) {
+        return next(createError(400, 'city name too long'))
+    }
     try {
-        const list =await Promise.all(cities.map(city=>{
+        const list = await Promise.all(cities.map(city=>{
             return Hotel.countDocuments({city: city})
         }))
         res.status(200).json(list)
