@@ -13,6 +13,13 @@ export default defineConfig(({ mode }) => ({
   // SE4030 SECURITY FIX - Z2: OWASP ZAP reported no CSP on Vite HTML.
   // No original header configuration existed; keep dev and preview covered.
   server: {
+    // Send API requests to Express instead of Vite's HTML fallback.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
+    },
     // SE4030 SECURITY FIX - Z3; Detection: OWASP ZAP.
     // Original: implicit Vite CORS defaults. Assets require only same-origin use.
     cors: false,
